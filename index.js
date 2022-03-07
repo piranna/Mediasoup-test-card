@@ -56,6 +56,11 @@ function genStream({producer: {kind}}, input_file_id)
   return ['-map', `${input_file_id}:0`, ...output_file_options]
 }
 
+function getProducer({producer})
+{
+  return producer
+}
+
 async function mapTestCard(kind)
 {
   const {options, router} = this
@@ -136,5 +141,5 @@ export default async function(
   for(const {transport: {observer}} of result)
     observer.once('close', onClose)
 
-  return result
+  return result.map(getProducer)
 }
