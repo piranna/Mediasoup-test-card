@@ -29,7 +29,7 @@
   "devDependencies": {
     "ffmpeg-static": "^5.0.0",
     "jest": "^27.5.1",
-    "mediasoup": "^3.9.8"
+    "mediasoup": "^3.9.9"
   },
   "jest": {
     "collectCoverage": true
