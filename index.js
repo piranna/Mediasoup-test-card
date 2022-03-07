@@ -90,8 +90,9 @@ async function mapTestCard(kind)
 }
 
 
-export default async function(router, testCards, listenIp = '127.0.0.1')
-{
+export default async function(
+  router, testCards, {debugMode, listenIp = '127.0.0.1'} = {}
+) {
   if(!router) throw new Error('Missing router')
   if(!testCards?.length) throw new Error('Missing testCards')
 
@@ -118,8 +119,11 @@ export default async function(router, testCards, listenIp = '127.0.0.1')
     '-f', 'tee', outputs.join('|')
   ]
 
+  if(debugMode) console.debug('ffmpeg', ...args)
+
   const cp = spawn(
-    pathToFfmpeg, args, {stdio: [ 'ignore', 'ignore', 'inherit' ]}
+    pathToFfmpeg, args,
+    {stdio: [ 'ignore', 'ignore', debugMode ? 'inherit': 'ignore' ]}
   )
 
 
