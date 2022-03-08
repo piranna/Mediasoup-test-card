@@ -48,15 +48,6 @@ test('no testCards', async function()
   )
 })
 
-test('invalid codec', async function()
-{
-  const promise = mediasoupTestCard({}, ['foo'])
-
-  await expect(promise).rejects.toThrowErrorMatchingInlineSnapshot(
-    `"Unknown codec: foo"`
-  )
-})
-
 test('router is not a valid Router object', async function()
 {
   const promise = mediasoupTestCard({}, ['audio'])
@@ -89,6 +80,15 @@ describe('with Router', function()
   afterAll(function()
   {
     worker.close()
+  })
+
+  test('invalid codec', async function()
+  {
+    const promise = mediasoupTestCard(router, ['foo'])
+
+    await expect(promise).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"Unknown codec: foo"`
+    )
   })
 
   test('basic usage', async function()
