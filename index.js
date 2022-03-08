@@ -91,6 +91,8 @@ async function mapTestCard(kind)
     }
   })
 
+  producer.observer.once('close', transport.close.bind(transport))
+
   return {payloadType, producer, ssrc, transport}
 }
 
@@ -131,15 +133,20 @@ export default async function(
     {stdio: [ 'ignore', 'ignore', debugMode ? 'inherit': 'ignore' ]}
   )
 
+  const transports = new Set()
 
-  function onClose()
+  for(const {transport} of result)
   {
-    // TODO: kill ffmpeg just only when all transports are closed.
-    cp.kill()
-  }
+    transports.add(transport)
 
-  for(const {transport: {observer}} of result)
-    observer.once('close', onClose)
+    transport.observer.once('close', function()
+    {
+      transports.delete(transport)
+
+      // Kill ffmpeg just only when all transports are closed.
+      if(!transports.size) cp.kill()
+    })
+  }
 
   return result.map(getProducer)
 }
