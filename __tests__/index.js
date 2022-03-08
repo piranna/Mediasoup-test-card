@@ -93,23 +93,29 @@ describe('with Router', function()
 
   test('basic usage', async function()
   {
-    const promise = mediasoupTestCard(router, ['audio', 'video'])
-
-    await expect(promise).resolves.toMatchObject(
-      [
-        {
-          "payloadType": 101,
-          "producer": expect.any(Producer),
-          "ssrc": expect.any(Number),
-          "transport": expect.any(PlainTransport)
-        },
-        {
-          "payloadType": 102,
-          "producer": expect.any(Producer),
-          "ssrc": expect.any(Number),
-          "transport": expect.any(PlainTransport)
-        }
-      ]
+    const promise = mediasoupTestCard(
+      router, ['audio', 'video'], {debugMode: true}
     )
+
+    await expect(promise).resolves.toMatchInlineSnapshot(`
+      Array [
+        Producer {
+          "_events": Object {
+            "@close": [Function],
+          },
+          "_eventsCount": 1,
+          "_maxListeners": Infinity,
+          Symbol(kCapture): false,
+        },
+        Producer {
+          "_events": Object {
+            "@close": [Function],
+          },
+          "_eventsCount": 1,
+          "_maxListeners": Infinity,
+          Symbol(kCapture): false,
+        },
+      ]
+    `)
   })
 })
