@@ -1,9 +1,6 @@
-import {createWorker, types} from 'mediasoup'
+const {createWorker} = require('mediasoup')
 
-import mediasoupTestCard from '..'
-
-
-const {PlainTransport, Producer} = types
+const mediasoupTestCard = require('..')
 
 
 const mediaCodecs =

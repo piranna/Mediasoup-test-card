@@ -1,7 +1,7 @@
-import {spawn} from 'child_process'
-import {randomInt} from 'crypto'
+const {spawn} = require('child_process')
+const {randomInt} = require('crypto')
 
-import pathToFfmpeg from 'ffmpeg-static'
+const pathToFfmpeg = require('ffmpeg-static')
 
 
 const CODECS = {
@@ -97,7 +97,7 @@ async function mapTestCard(kind)
 }
 
 
-export default async function(
+module.exports = async function(
   router, testCards, {debugMode, listenIp = '127.0.0.1'} = {}
 ) {
   if(!router) throw new Error('Missing router')
