@@ -108,7 +108,15 @@ module.exports = async function(
   router, testCards, {debugMode, listenIp = '127.0.0.1'} = {}
 ) {
   if(!router) throw new Error('Missing router')
-  if(!testCards?.length) throw new Error('Missing testCards')
+  if(!testCards) throw new Error('Missing testCards')
+
+  let single = false
+  if(!Array.isArray(testCards))
+  {
+    testCards = [testCards]
+    single = true
+  }
+  if(!testCards.length) throw new Error('testCards is empty')
 
   const options = {
     listenIp,
@@ -117,13 +125,11 @@ module.exports = async function(
     comedia: true
   }
 
-  const result = await Promise.all(
-    testCards.map(mapTestCard, {options, router})
-  )
+  testCards = await Promise.all(testCards.map(mapTestCard, {options, router}))
 
-  const inputs  = result.map(genInput)
-  const streams = result.map(genStream)
-  const outputs = result.map(genOutput, listenIp)
+  const inputs  = testCards.map(genInput)
+  const streams = testCards.map(genStream)
+  const outputs = testCards.map(genOutput, listenIp)
 
   const args = [
     // '-loglevel','info',
@@ -142,7 +148,7 @@ module.exports = async function(
 
   const transports = new Set()
 
-  for(const {transport} of result)
+  for(const {transport} of testCards)
   {
     transports.add(transport)
 
@@ -155,5 +161,7 @@ module.exports = async function(
     })
   }
 
-  return result.map(getProducer)
+  const result = testCards.map(getProducer)
+
+  return single ? result[0] : result
 }
