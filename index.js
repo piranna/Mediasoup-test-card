@@ -61,17 +61,24 @@ function getProducer({producer})
   return producer
 }
 
-async function mapTestCard(kind)
+async function mapTestCard(codec)
 {
   const {options, router} = this
 
-  const codec = CODECS[kind]
-  if(!codec) throw new Error(`Unknown codec: ${kind}`)
+  // `codec` defined as a string, get it from default ones.
+  if(typeof codec === 'string')
+  {
+    const kind = codec.toLowerCase()
+
+    codec = CODECS[kind]
+    if(!codec) throw new Error(`Unknown codec: ${kind}`)
+  }
 
   const transport = await router.createPlainTransport(options)
 
   await transport.connect({})
 
+  const [kind] = codec.mimeType.split('/', 1)
   const payloadType = kind === 'audio' ? 101 : 102
   const ssrc = randomInt(1, 2**31-1)  // Seems `ssrc` is signed int32 in ffpmpeg
 
