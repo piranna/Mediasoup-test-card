@@ -44,10 +44,11 @@ function genOutput(
   + `rtp://${listenIp}:${rtpPort}?rtcpport=${rtcpPort}`
 }
 
-function genStream({producer: {kind}}, input_file_id)
-{
+function genStream(
+  {codec: {channels, clockRate}, producer: {kind}}, input_file_id
+) {
   const output_file_options = kind === 'audio'
-  ? ['-acodec', 'libopus', '-ab', '128k', '-ac', '2', '-ar', '48000']
+  ? ['-acodec', 'libopus', '-ab', '128k', '-ac', channels, '-ar', clockRate]
   : [
     '-pix_fmt', 'yuv420p', '-c:v', 'libvpx', '-b:v', '1000k',
     '-deadline', 'realtime', '-cpu-used', '4'
@@ -100,7 +101,7 @@ async function mapTestCard(codec)
 
   producer.observer.once('close', transport.close.bind(transport))
 
-  return {payloadType, producer, ssrc, transport}
+  return {codec, payloadType, producer, ssrc, transport}
 }
 
 
