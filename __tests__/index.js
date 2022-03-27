@@ -79,6 +79,15 @@ describe('with Router', function()
     worker.close()
   })
 
+  test('no codec', async function()
+  {
+    const promise = mediasoupTestCard(router, [])
+
+    await expect(promise).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"testCards is empty"`
+    )
+  })
+
   test('invalid codec', async function()
   {
     const promise = mediasoupTestCard(router, ['foo'])
@@ -113,6 +122,28 @@ describe('with Router', function()
           Symbol(kCapture): false,
         },
       ]
+    `)
+  })
+
+  test('single', async function()
+  {
+    // TODO: capture `console` output to test disabled `debugMode`
+    const codec = {
+      clockRate: 90000,
+      mimeType : 'video/vp8',
+    }
+
+    const promise = mediasoupTestCard(router, codec)
+
+    await expect(promise).resolves.toMatchInlineSnapshot(`
+      Producer {
+        "_events": Object {
+          "@close": [Function],
+        },
+        "_eventsCount": 1,
+        "_maxListeners": Infinity,
+        Symbol(kCapture): false,
+      }
     `)
   })
 })
