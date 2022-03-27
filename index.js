@@ -81,7 +81,10 @@ async function mapTestCard(codec)
 
   const [kind] = codec.mimeType.split('/', 1)
   const payloadType = kind === 'audio' ? 101 : 102
-  const ssrc = randomInt(1, 2**31-1)  // Seems `ssrc` is signed int32 in ffpmpeg
+
+  // It seems `ssrc` value is a signed int32 in `ffmpeg`, so we can't get up to
+  // full 32 bits values as dictates the spec. `0` means "disabled".
+  const ssrc = randomInt(1, 2**31-1)
 
   const producer = await transport.produce({
     kind,
@@ -111,17 +114,14 @@ module.exports = async function(
   if(!router) throw new Error('Missing router')
   if(!testCards) throw new Error('Missing testCards')
 
-  let single = false
-  if(!Array.isArray(testCards))
-  {
-    testCards = [testCards]
-    single = true
-  }
+  const single = !Array.isArray(testCards)
+  if(single) testCards = [testCards]
   if(!testCards.length) throw new Error('testCards is empty')
 
   const options = {
     listenIp,
-    // FFmpeg and GStreamer don't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
+    // FFmpeg and GStreamer don't support RTP/RTCP multiplexing
+    // ("a=rtcp-mux" in SDP)
     rtcpMux: false,
     comedia: true
   }
