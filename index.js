@@ -4,7 +4,7 @@ const {randomInt} = require('crypto')
 const pathToFfmpeg = require('ffmpeg-static')
 
 
-const CODECS = {
+const defaultCodecs = {
   audio: {
     channels  : 2,
     clockRate : 48000,
@@ -17,12 +17,40 @@ const CODECS = {
   }
 }
 
+const format = 'yuv420p'
+
+// https://github.com/versatica/mediasoup/blob/v3/node/src/supportedRtpCapabilities.ts
+const subtype2ffmpegCodec = {
+  // Audio codecs.
+  // 'cn': ,
+  // 'g722': 'g722',
+  'ilbc': 'libilbc',
+  // 'isac': ,
+  // 'multiopus': ,
+  'opus': 'libopus',
+  // 'pcma': ,
+  // 'pcmu': ,
+  // 'silk': ,
+  // 'telephone-event': ,
+
+  // Video codecs.
+  'h264': 'libx264',
+  'h265': 'libx265',
+  'vp8': 'libvpx',
+  'vp9': 'libvpx-vp9'
+}
+
 
 function genInput({producer: {kind}})
 {
   const input = kind === 'audio'
-    ? 'sine=f=440:b=4'
-    : 'testsrc=d=5:s=1920x1080:r=24,format=yuv420p'
+    // https://www.ffmpeg.org/ffmpeg-all.html#sine
+    ? 'sine=beep_factor=4:frequency=440'
+    // https://libav.org/documentation/libavfilter.html#rgbtestsrc_002c-testsrc
+    // https://www.ffmpeg.org/ffmpeg-all.html#allrgb_002c-allyuv_002c-color_002c-colorspectrum_002c-haldclutsrc_002c-nullsrc_002c-pal75bars_002c-pal100bars_002c-rgbtestsrc_002c-smptebars_002c-smptehdbars_002c-testsrc_002c-testsrc2_002c-yuvtestsrc
+    // https://www.ffmpeg.org/ffmpeg-all.html#Video-size
+    // https://www.ffmpeg.org/ffmpeg-all.html#Video-rate
+    : `testsrc=rate=25:size=320x240,format=${format}`
 
   return ['-f', 'lavfi', '-i', input]
 }
@@ -44,14 +72,26 @@ function genOutput(
   + `rtp://${listenIp}:${rtpPort}?rtcpport=${rtcpPort}`
 }
 
-function genStream(
-  {codec: {channels, clockRate}, producer: {kind}}, input_file_id
-) {
-  const output_file_options = kind === 'audio'
-  ? ['-acodec', 'libopus', '-ab', '128k', '-ac', channels, '-ar', clockRate]
+function genStream({codec: {channels, clockRate, mimeType}}, input_file_id)
+{
+  const [type, subtype] = mimeType.split('/', 2)
+
+  const codec = subtype2ffmpegCodec[subtype]
+  if(!codec) throw new Error(`Unknown codec: ${subtype}`)
+
+  const output_file_options = type === 'audio'
+  ? [
+    '-ac', channels,
+    '-ar', clockRate,
+    '-codec:a', codec,
+      '-b:a', '128k'  // TODO: make it configurable.
+  ]
   : [
-    '-pix_fmt', 'yuv420p', '-c:v', 'libvpx', '-b:v', '1000k',
-    '-deadline', 'realtime', '-cpu-used', '4'
+    '-pix_fmt', format,
+    '-codec:v', codec,
+      '-b:v', '1000k',  // TODO: make it configurable.
+      '-cpu-used', '4',  // TODO: make it configurable.
+      '-deadline', 'realtime'
   ]
 
   return ['-map', `${input_file_id}:0`, ...output_file_options]
@@ -71,7 +111,7 @@ async function mapTestCard(codec)
   {
     const kind = codec.toLowerCase()
 
-    codec = CODECS[kind]
+    codec = defaultCodecs[kind]
     if(!codec) throw new Error(`Unknown codec: ${kind}`)
   }
 
