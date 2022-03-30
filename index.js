@@ -17,8 +17,6 @@ const defaultCodecs = {
   }
 }
 
-const format = 'yuv420p'
-
 // https://github.com/versatica/mediasoup/blob/v3/node/src/supportedRtpCapabilities.ts
 const subtype2ffmpegCodec = {
   // Audio codecs.
@@ -40,17 +38,28 @@ const subtype2ffmpegCodec = {
   'vp9': 'libvpx-vp9'
 }
 
+const testCardDefaults = {
+  beep_factor: 4,  // FFmpeg default: 0 (disabled)
+  // bitrate: Default: '200k', we adjust it for audio or video
+  cpuUsed: 4,  // Unknown FFmpeg default, maybe 1?
+  frequency: 440,
+  pix_fmt: 'yuv420p',
+  rate: 25,
+  size: '320x240'
+}
 
-function genInput({producer: {kind}})
-{
+
+function genInput(
+  {producer: {kind}, testCard: {beep_factor, frequency, pix_fmt, rate, size}}
+) {
   const input = kind === 'audio'
     // https://www.ffmpeg.org/ffmpeg-all.html#sine
-    ? 'sine=beep_factor=4:frequency=440'
+    ? `sine=beep_factor=${beep_factor}:frequency=${frequency}`
     // https://libav.org/documentation/libavfilter.html#rgbtestsrc_002c-testsrc
     // https://www.ffmpeg.org/ffmpeg-all.html#allrgb_002c-allyuv_002c-color_002c-colorspectrum_002c-haldclutsrc_002c-nullsrc_002c-pal75bars_002c-pal100bars_002c-rgbtestsrc_002c-smptebars_002c-smptehdbars_002c-testsrc_002c-testsrc2_002c-yuvtestsrc
     // https://www.ffmpeg.org/ffmpeg-all.html#Video-size
     // https://www.ffmpeg.org/ffmpeg-all.html#Video-rate
-    : `testsrc=rate=25:size=320x240,format=${format}`
+    : `testsrc=rate=${rate}:size=${size},format=${pix_fmt}`
 
   return ['-f', 'lavfi', '-i', input]
 }
@@ -73,7 +82,12 @@ function genOutput(
 }
 
 function genStream(
-  {codec: {channels, clockRate}, ffmpegCodec, producer: {kind}},
+  {
+    codec: {channels, clockRate},
+    ffmpegCodec,
+    producer: {kind},
+    testCard: {bitrate, cpuUsed, pix_fmt}
+  },
   input_file_id
 ) {
   const output_file_options = kind === 'audio'
@@ -81,13 +95,13 @@ function genStream(
     '-ac', channels,
     '-ar', clockRate,
     '-codec:a', ffmpegCodec,
-      '-b:a', '128k'  // TODO: make it configurable.
+      '-b:a', bitrate || '128k'
   ]
   : [
-    '-pix_fmt', format,
+    '-pix_fmt', pix_fmt,
     '-codec:v', ffmpegCodec,
-      '-b:v', '1000k',  // TODO: make it configurable.
-      '-cpu-used', '4',  // TODO: make it configurable.
+      '-b:v', bitrate || '1000k',
+      '-cpu-used', cpuUsed,
       '-deadline', 'realtime'
   ]
 
@@ -99,7 +113,37 @@ function getProducer({producer})
   return producer
 }
 
-async function mapTestCard({codec, ffmpegCodec, kind})
+function hydrateTestCard(testCard)
+{
+  // `testCard` defined as a string, get it from default ones.
+  if(typeof testCard === 'string')
+  {
+    const kind = testCard.toLowerCase()
+
+    testCard = defaultCodecs[kind]
+    if(!testCard) throw new Error(`Unknown codec: ${kind}`)
+  }
+
+  const {
+    channels, clockRate, mimeType, parameters, payloadType, rtcpFeedback,
+    ...rest
+  } = testCard
+
+  // Get `kind` and FFmpeg codec from MIME type.
+  const [kind, subtype] = mimeType.split('/', 2)
+
+  const ffmpegCodec = subtype2ffmpegCodec[subtype]
+  if(!ffmpegCodec) throw new Error(`Unknown mime: ${mimeType}`)
+
+  return {
+    codec: {
+      channels, clockRate, mimeType, parameters, payloadType, rtcpFeedback
+    },
+    ffmpegCodec, kind, testCard: {...testCardDefaults, ...rest}
+  }
+}
+
+async function mapTestCard({codec, ffmpegCodec, kind, testCard})
 {
   const {options, router} = this
 
@@ -131,28 +175,7 @@ async function mapTestCard({codec, ffmpegCodec, kind})
 
   producer.observer.once('close', transport.close.bind(transport))
 
-  return {codec, ffmpegCodec, payloadType, producer, ssrc, transport}
-}
-
-function hydrateTestCard(codec)
-{
-  // `codec` defined as a string, get it from default ones.
-  if(typeof codec === 'string')
-  {
-    const kind = codec.toLowerCase()
-
-    codec = defaultCodecs[kind]
-    if(!codec) throw new Error(`Unknown codec: ${kind}`)
-  }
-
-  // Get `kind` and FFmpeg codec from MIME type.
-  const {mimeType} = codec
-  const [kind, subtype] = mimeType.split('/', 2)
-
-  const ffmpegCodec = subtype2ffmpegCodec[subtype]
-  if(!ffmpegCodec) throw new Error(`Unknown mime: ${mimeType}`)
-
-  return {codec, ffmpegCodec, kind}
+  return {codec, ffmpegCodec, payloadType, producer, ssrc, testCard, transport}
 }
 
 
