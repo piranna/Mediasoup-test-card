@@ -72,23 +72,20 @@ function genOutput(
   + `rtp://${listenIp}:${rtpPort}?rtcpport=${rtcpPort}`
 }
 
-function genStream({codec: {channels, clockRate, mimeType}}, input_file_id)
-{
-  const [type, subtype] = mimeType.split('/', 2)
-
-  const codec = subtype2ffmpegCodec[subtype]
-  if(!codec) throw new Error(`Unknown codec: ${subtype}`)
-
-  const output_file_options = type === 'audio'
+function genStream(
+  {codec: {channels, clockRate}, ffmpegCodec, producer: {kind}},
+  input_file_id
+) {
+  const output_file_options = kind === 'audio'
   ? [
     '-ac', channels,
     '-ar', clockRate,
-    '-codec:a', codec,
+    '-codec:a', ffmpegCodec,
       '-b:a', '128k'  // TODO: make it configurable.
   ]
   : [
     '-pix_fmt', format,
-    '-codec:v', codec,
+    '-codec:v', ffmpegCodec,
       '-b:v', '1000k',  // TODO: make it configurable.
       '-cpu-used', '4',  // TODO: make it configurable.
       '-deadline', 'realtime'
@@ -102,24 +99,14 @@ function getProducer({producer})
   return producer
 }
 
-async function mapTestCard(codec)
+async function mapTestCard({codec, ffmpegCodec, kind})
 {
   const {options, router} = this
-
-  // `codec` defined as a string, get it from default ones.
-  if(typeof codec === 'string')
-  {
-    const kind = codec.toLowerCase()
-
-    codec = defaultCodecs[kind]
-    if(!codec) throw new Error(`Unknown codec: ${kind}`)
-  }
 
   const transport = await router.createPlainTransport(options)
 
   await transport.connect({})
 
-  const [kind] = codec.mimeType.split('/', 1)
   const payloadType = kind === 'audio' ? 101 : 102
 
   // It seems `ssrc` value is a signed int32 in `ffmpeg`, so we can't get up to
@@ -144,7 +131,28 @@ async function mapTestCard(codec)
 
   producer.observer.once('close', transport.close.bind(transport))
 
-  return {codec, payloadType, producer, ssrc, transport}
+  return {codec, ffmpegCodec, payloadType, producer, ssrc, transport}
+}
+
+function hydrateTestCard(codec)
+{
+  // `codec` defined as a string, get it from default ones.
+  if(typeof codec === 'string')
+  {
+    const kind = codec.toLowerCase()
+
+    codec = defaultCodecs[kind]
+    if(!codec) throw new Error(`Unknown codec: ${kind}`)
+  }
+
+  // Get `kind` and FFmpeg codec from MIME type.
+  const {mimeType} = codec
+  const [kind, subtype] = mimeType.split('/', 2)
+
+  const ffmpegCodec = subtype2ffmpegCodec[subtype]
+  if(!ffmpegCodec) throw new Error(`Unknown mime: ${mimeType}`)
+
+  return {codec, ffmpegCodec, kind}
 }
 
 
@@ -157,6 +165,8 @@ module.exports = async function(
   const single = !Array.isArray(testCards)
   if(single) testCards = [testCards]
   if(!testCards.length) throw new Error('testCards is empty')
+
+  testCards = testCards.map(hydrateTestCard)
 
   const options = {
     listenIp,
