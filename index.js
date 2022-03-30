@@ -166,7 +166,8 @@ async function mapTestCard({codec, ffmpegCodec, kind, testCard})
         {
           ...codec,
           payloadType,
-          rtcpFeedback: [ ]  // FFmpeg does not support NACK nor PLI/FIR.
+          // FFmpeg don't support NACK nor PLI/FIR, so we make sure it's ignored
+          rtcpFeedback: []
         }
       ],
       encodings: [ { ssrc } ]
@@ -185,12 +186,14 @@ module.exports = async function(
   if(!router) throw new Error('Missing router')
   if(!testCards) throw new Error('Missing testCards')
 
+  // Hydrate testCards.
   const single = !Array.isArray(testCards)
   if(single) testCards = [testCards]
   if(!testCards.length) throw new Error('testCards is empty')
 
   testCards = testCards.map(hydrateTestCard)
 
+  // Create Mediasoup RTP Transports and Producers.
   const options = {
     listenIp,
     // FFmpeg and GStreamer don't support RTP/RTCP multiplexing
@@ -201,6 +204,7 @@ module.exports = async function(
 
   testCards = await Promise.all(testCards.map(mapTestCard, {options, router}))
 
+  // Create FFmpeg command line.
   const inputs  = testCards.map(genInput)
   const streams = testCards.map(genStream)
   const outputs = testCards.map(genOutput, listenIp)
@@ -215,11 +219,13 @@ module.exports = async function(
 
   if(debugMode) console.debug('ffmpeg', ...args)
 
+  // Start FFmpeg.
   const cp = spawn(
     pathToFfmpeg, args,
     {stdio: [ 'ignore', 'ignore', debugMode ? 'inherit': 'ignore' ]}
   )
 
+  // Kill ffmpeg when all test cards Transports are closed.
   const transports = new Set()
 
   for(const {transport} of testCards)
@@ -230,11 +236,11 @@ module.exports = async function(
     {
       transports.delete(transport)
 
-      // Kill ffmpeg just only when all transports are closed.
       if(!transports.size) cp.kill()
     })
   }
 
+  // Return the Producers of the test cards.
   const result = testCards.map(getProducer)
 
   return single ? result[0] : result
