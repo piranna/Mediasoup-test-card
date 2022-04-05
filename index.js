@@ -21,13 +21,13 @@ const defaultCodecs = {
 const subtype2ffmpegCodec = {
   // Audio codecs.
   // 'cn': ,
-  // 'g722': 'g722',
+  'g722': 'g722',
   'ilbc': 'libilbc',
   // 'isac': ,
   // 'multiopus': ,
   'opus': 'libopus',
-  // 'pcma': ,
-  // 'pcmu': ,
+  'pcma': 'alaw',
+  'pcmu': 'mulaw',
   // 'silk': ,
   // 'telephone-event': ,
 
