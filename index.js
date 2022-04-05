@@ -132,7 +132,7 @@ function hydrateTestCard(testCard)
   // Get `kind` and FFmpeg codec from MIME type.
   const [kind, subtype] = mimeType.split('/', 2)
 
-  const ffmpegCodec = subtype2ffmpegCodec[subtype]
+  const ffmpegCodec = subtype2ffmpegCodec[subtype.toLowerCase()]
   if(!ffmpegCodec) throw new Error(`Unknown mime: ${mimeType}`)
 
   return {
